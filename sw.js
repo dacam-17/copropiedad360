@@ -1,7 +1,7 @@
 // Permite instalar la app en el celular y abrirla aunque la señal esté débil.
 // Los datos siempre se piden en vivo a Supabase; aquí solo se guardan los archivos de la app.
-const CACHE = 'c360-v6';
-const ARCHIVOS = ['./', 'index.html', 'styles.css', 'app.js', 'modulos.js', 'config.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'c360-v7';
+const ARCHIVOS = ['./', 'index.html', 'styles.css', 'app.js', 'modulos.js', 'porteria.js', 'config.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));

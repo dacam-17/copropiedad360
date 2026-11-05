@@ -67,7 +67,8 @@ const U = () => S.ctx && S.ctx.unidad_id;
 const ROL = () => S.ctx && S.ctx.rol;
 const W = () => ROL() === 'admin' && S.ctx.vigente !== false;                 // puede escribir como administración
 const R = () => ROL() === 'residente';
-const gestiona = () => S.ctxs.some(c => c.rol !== 'residente');
+const gestiona = () => S.ctxs.some(c => c.rol === 'admin' || c.rol === 'consejo');
+const inicioDe = c => c.rol === 'residente' ? 'rinicio' : c.rol === 'porteria' ? 'porteria' : 'inicio';
 
 const TABS = {
   admin: [['inicio', 'Inicio'], ['cartera', 'Cartera'], ['mant', 'Mantenim.'], ['chat', 'Chat'], ['mas', 'Más']],
@@ -86,7 +87,7 @@ function header() {
   const enPortafolio = S.view === 'portafolio' || !S.ctx || ['sinacceso', 'nuevo', 'contextos'].includes(S.view);
   $('htitle').textContent = enPortafolio ? (S.view === 'contextos' ? 'Mis accesos' : 'Mis conjuntos') : S.ctx.nombre;
   $('hsub').textContent = enPortafolio ? (S.user ? S.user.email : '')
-    : R() ? `Apto ${S.ctx.unidad_codigo || ''} · Residente` : `${S.ctx.ciudad || ''}${S.ctx.ciudad ? ' · ' : ''}${ROL() === 'admin' ? 'Administración' : 'Consejo de administración'}`;
+    : R() ? `Apto ${S.ctx.unidad_codigo || ''} · Residente` : `${S.ctx.ciudad || ''}${S.ctx.ciudad ? ' · ' : ''}${ROL() === 'admin' ? 'Administración' : ROL() === 'porteria' ? 'Portería' : 'Consejo de administración'}`;
   const cb = $('conjBtn');
   cb.hidden = !(gestiona() && S.ctx && !enPortafolio);
   cb.innerHTML = `▦ Todos mis conjuntos`;
@@ -99,7 +100,7 @@ function nav() {
   if (!show) return;
   const tabs = TABS[ROL()];
   const enMas = ['mas', 'rmas'];
-  const deMas = { admin: ['reservas', 'pqrs', 'asamblea', 'info', 'config', 'inventario', 'activo', 'qrs', 'documentos'], consejo: ['pqrs', 'asamblea', 'info', 'inventario', 'activo', 'qrs', 'documentos'], residente: ['rpqrs', 'rdano', 'asamblea', 'info', 'documentos'] }[ROL()];
+  const deMas = { admin: ['reservas', 'pqrs', 'asamblea', 'info', 'config', 'inventario', 'activo', 'qrs', 'documentos', 'reportes', 'reportar', 'bitacora', 'notificaciones'], consejo: ['pqrs', 'asamblea', 'info', 'inventario', 'activo', 'qrs', 'documentos', 'reportes', 'reportar', 'bitacora', 'notificaciones'], residente: ['rpqrs', 'rdano', 'asamblea', 'info', 'documentos', 'reportar', 'misreportes', 'misvisitas', 'mispaquetes', 'notificaciones'], porteria: ['reportar', 'notificaciones'] }[ROL()] || [];
   $('nav').innerHTML = tabs.map(([k, l]) => {
     const cur = S.view === k || (enMas.includes(k) && deMas.includes(S.view));
     const ico = k === 'rinicio' ? 'inicio' : k === 'pagos' ? 'cartera' : k === 'rmas' ? 'mas' : k;
@@ -120,6 +121,7 @@ async function render() {
     if (t !== S.token) return;
     app.innerHTML = `<div class="view">${html}</div>`;
     if (AFTER[S.view]) AFTER[S.view]();
+    if (window.despuesDeRender) window.despuesDeRender();
   } catch (e) {
     console.error(e);
     if (t !== S.token) return;
@@ -146,7 +148,7 @@ async function inicioSesion() {
   if (typeof rutaQR === 'function' && await rutaQR()) return;
   if (!S.ctxs.length) return go(S.plat && S.plat.dueno ? 'plataforma' : 'sinacceso');
   if (gestiona()) { S.ctx = null; return go('portafolio'); }
-  setCtx(S.ctxs[0]); go('rinicio');
+  setCtx(S.ctxs[0]); go(inicioDe(S.ctxs[0]));
 }
 
 function setCtx(ctx) {
@@ -158,7 +160,7 @@ function setCtx(ctx) {
 
 function suscribirChat() {
   if (S.canal) { sb.removeChannel(S.canal); S.canal = null; }
-  if (!S.ctx || ROL() === 'consejo') return;
+  if (!S.ctx || ROL() === 'consejo' || ROL() === 'porteria') return;
   S.canal = sb.channel('chat-' + C())
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes', filter: 'conjunto_id=eq.' + C() }, () => {
       if (S.view === 'chat') render(); else refrescarNoLeidos();
@@ -166,7 +168,7 @@ function suscribirChat() {
 }
 
 async function refrescarNoLeidos() {
-  if (!S.ctx || ROL() === 'consejo') { S.unread = 0; nav(); return; }
+  if (!S.ctx || ROL() === 'consejo' || ROL() === 'porteria') { S.unread = 0; nav(); return; }
   let p = sb.from('mensajes').select('id', { count: 'exact', head: true }).eq('conjunto_id', C()).eq('leido', false);
   p = R() ? p.eq('de_admin', true).eq('unidad_id', U()) : p.eq('de_admin', false);
   const r = await p;
@@ -248,7 +250,7 @@ V.nuevo = async () => `<div class="stack"><h2>Nuevo conjunto</h2>
 
 V.contextos = async () => {
   const g = S.ctxs.filter(c => c.rol !== 'residente'), r = S.ctxs.filter(c => c.rol === 'residente');
-  const fila = c => `<button class="card navcard" data-act="entrar" data-id="${c.conjunto_id}" data-rol="${c.rol}"><div class="ico">${iniciales(c.nombre)}</div><div class="grow"><h3>${esc(c.nombre)}</h3><div class="sub">${c.rol === 'admin' ? 'Administración' : c.rol === 'consejo' ? 'Consejo' : 'Residente · ' + esc(c.unidad_codigo)}</div></div><span class="sub">›</span></button>`;
+  const fila = c => `<button class="card navcard" data-act="entrar" data-id="${c.conjunto_id}" data-rol="${c.rol}"><div class="ico">${iniciales(c.nombre)}</div><div class="grow"><h3>${esc(c.nombre)}</h3><div class="sub">${c.rol === 'admin' ? 'Administración' : c.rol === 'consejo' ? 'Consejo' : c.rol === 'porteria' ? 'Portería' : 'Residente · ' + esc(c.unidad_codigo)}</div></div><span class="sub">›</span></button>`;
   return `<div class="stack">
     ${g.length ? `<button class="btn" data-act="ir" data-v="portafolio">▦ Panel de todos mis conjuntos</button>` : ''}
     ${g.length ? `<h3>Conjuntos que gestiono</h3>${g.map(fila).join('')}` : ''}
@@ -282,6 +284,8 @@ V.portafolio = async () => {
     if (r.cargado_mes > 0 && r.recaudado_mes / r.cargado_mes < .8) alertas.push({ r, sev: 'warn', go: 'cartera', t: `Recaudo del mes en ${Math.round(r.recaudado_mes / r.cargado_mes * 100)}%` });
     if (r.chats_sin_leer > 0 && r.rol === 'admin') alertas.push({ r, sev: 'warn', go: 'chat', t: `${r.chats_sin_leer} mensaje${r.chats_sin_leer > 1 ? 's' : ''} de chat sin leer` });
     if (r.pqrs_abiertas > 0) alertas.push({ r, sev: 'info', go: 'pqrs', t: `${r.pqrs_abiertas} PQRS esperando respuesta` });
+    if (r.reportes_urgentes > 0) alertas.push({ r, sev: 'bad', go: 'reportes', t: `${r.reportes_urgentes} reporte(s) urgente(s) sin resolver` });
+    if (r.reportes_nuevos > 0) alertas.push({ r, sev: 'warn', go: 'reportes', t: `${r.reportes_nuevos} reporte(s) nuevos de residentes o portería` });
     if (r.vigente === false) alertas.push({ r, sev: 'bad', go: 'inicio', t: 'Suscripción vencida: el conjunto está en solo lectura' });
     if (r.activos_malos > 0) alertas.push({ r, sev: 'bad', go: 'inventario', t: `${r.activos_malos} equipo(s) en mal estado o fuera de servicio` });
     if (r.docs_por_vencer > 0) alertas.push({ r, sev: 'warn', go: 'documentos', t: `${r.docs_por_vencer} documento(s) vencidos o por vencer (pólizas, certificados)` });
@@ -518,9 +522,9 @@ V.chat = async () => {
     return `<div class="stack">
       ${R() ? `<div><h2>Chat con la administración</h2><div class="sub">Para emergencias llama directamente a portería.</div></div>`
         : `<div class="row"><button class="btn sm ghost" data-act="sub" data-k="unidad" data-v="">‹ Volver</button><div class="grow" style="text-align:right"><h3>${esc((uni || {}).codigo)}</h3><div class="sub">${esc((uni || {}).propietario || '')}</div></div></div>`}
-      <div class="card thread" id="thread">${msgs.map(m => `<div class="bub ${mio(m) ? 'me' : ''}"><div>${nl(m.texto)}</div><small>${m.de_admin && R() ? 'Administración · ' : ''}${fechaHora(m.created_at)}</small></div>`).join('') || '<div class="sub" style="text-align:center">Escribe el primer mensaje.</div>'}</div>
+      <div class="card thread" id="thread">${msgs.map(m => `<div class="bub ${mio(m) ? 'me' : ''}">${m.foto ? `<img data-foto="${esc(m.foto)}" class="chatimg" alt="Foto">` : ''}${m.foto && m.texto === 'Foto' ? '' : `<div>${nl(m.texto)}</div>`}<small>${m.de_admin && R() ? 'Administración · ' : ''}${fechaHora(m.created_at)}</small></div>`).join('') || '<div class="sub" style="text-align:center">Escribe el primer mensaje.</div>'}</div>
       ${W() ? `<div class="qr">${qr.map(t => `<button class="btn sm ghost" data-act="rapida" data-t="${esc(t)}">${esc(t)}</button>`).join('')}</div>` : ''}
-      <form class="chatform" data-form="mensaje" data-u="${unidad}"><input name="texto" placeholder="Escribe un mensaje" autocomplete="off" aria-label="Mensaje" maxlength="2000"><button class="btn" type="submit">Enviar</button></form>
+      <form class="chatform" data-form="mensaje" data-u="${unidad}"><label class="btn ghost camb" for="ch-foto" title="Adjuntar foto" aria-label="Adjuntar foto">${svg('reportes')}</label><input id="ch-foto" name="foto" type="file" accept="image/*" hidden data-chg="fotoChat"><input name="texto" placeholder="Escribe un mensaje" autocomplete="off" aria-label="Mensaje" maxlength="2000"><button class="btn" type="submit">Enviar</button></form>
       ${W() && msgs.some(m => !m.de_admin) ? `<button class="btn sm ghost" data-act="chatPqrs" data-u="${unidad}" style="align-self:flex-start">Convertir en PQRS formal</button>` : ''}</div>`;
   }
   const [msgs, unidades] = await Promise.all([
@@ -659,7 +663,7 @@ V.rinicio = async () => {
     q(sb.from('votaciones').select('id').eq('conjunto_id', C()).eq('abierta', true))
   ]);
   const saldo = Number((saldoRow || {}).saldo || 0);
-  const quick = [['reservas', 'Reservar', 'reservas'], ['chat', 'Chat', 'chat'], ['pqrs', 'PQRS', 'rpqrs'], ['dano', 'Reportar daño', 'rdano'], ['info', 'Circulares', 'info'], ['asamblea', 'Asamblea', 'asamblea'], ['cartera', 'Pagos', 'pagos'], ['mas', 'Más', 'rmas']];
+  const quick = [['reservas', 'Reservar', 'reservas'], ['chat', 'Chat', 'chat'], ['pqrs', 'PQRS', 'rpqrs'], ['reportes', 'Reportar', 'reportar'], ['info', 'Circulares', 'info'], ['asamblea', 'Asamblea', 'asamblea'], ['visitas', 'Visitas', 'misvisitas'], ['mas', 'Más', 'rmas']];
   return `<div class="stack">
   <div class="card hero-res"><div class="eyebrow" style="color:inherit;opacity:.8">Hola${S.user.user_metadata && S.user.user_metadata.nombre ? ', ' + esc(S.user.user_metadata.nombre.split(' ')[0]) : ''}</div>
     ${saldo > 0 ? `<div style="font-size:12.5px;opacity:.85;margin-top:6px">Saldo pendiente</div><div class="bigv">${fmt(saldo)}</div><button class="btn inv" data-act="tab" data-v="pagos" style="margin-top:12px;width:100%">Reportar pago</button>`
@@ -714,9 +718,9 @@ V.config = async () => {
       <button class="btn" type="submit">Agregar zona</button></form></details>
 
   <details class="card"><summary><b>Equipo de gestión</b> <span class="sub">(administración y consejo)</span></summary>
-    ${equipo.map(i => `<div class="item"><div class="grow"><h3>${esc(i.email)}</h3><div class="sub">${i.rol === 'admin' ? 'Administración' : 'Consejo'}</div></div><span class="chip ${i.usada ? 'ok' : 'warn'}">${i.usada ? 'Activo' : 'Invitado'}</span></div>`).join('')}
+    ${equipo.map(i => `<div class="item"><div class="grow"><h3>${esc(i.email)}</h3><div class="sub">${i.rol === 'admin' ? 'Administración' : i.rol === 'porteria' ? 'Portería' : 'Consejo'}</div></div><span class="chip ${i.usada ? 'ok' : 'warn'}">${i.usada ? 'Activo' : 'Invitado'}</span></div>`).join('')}
     <form class="form mt" data-form="invitar"><div class="two"><div><label for="iv-e">Correo</label><input id="iv-e" name="email" type="email" required></div>
-      <div><label for="iv-r">Rol</label><select id="iv-r" name="rol"><option value="consejo">Consejo (solo consulta)</option><option value="admin">Administración</option></select></div></div>
+      <div><label for="iv-r">Rol</label><select id="iv-r" name="rol"><option value="consejo">Consejo (solo consulta)</option><option value="admin">Administración</option><option value="porteria">Portería (vigilancia)</option></select></div></div>
       <p class="sub" style="margin:0">La persona entra creando su cuenta con ese correo.</p>
       <button class="btn" type="submit">Dar acceso</button></form></details></div>`;
 };
@@ -736,7 +740,7 @@ const ACT = {
   entrar: d => {
     const ctx = S.ctxs.find(c => c.conjunto_id === d.id && c.rol === d.rol) || S.ctxs.find(c => c.conjunto_id === d.id);
     if (!ctx) return;
-    setCtx(ctx); go(d.go || (ctx.rol === 'residente' ? 'rinicio' : 'inicio'));
+    setCtx(ctx); go(d.go || inicioDe(ctx));
   },
   portafolio: () => { go('portafolio'); },
   archivo: d => abrirArchivo(d.path),
@@ -954,9 +958,9 @@ async function arrancar() {
     let guardado = ''; try { guardado = localStorage.getItem('c360_ctx') || ''; } catch (e) { }
     const [gid, grol] = guardado.split('|');
     const prev = S.ctxs.find(c => c.conjunto_id === gid && c.rol === grol);
-    if (prev) { setCtx(prev); return go(prev.rol === 'residente' ? 'rinicio' : 'inicio'); }
+    if (prev) { setCtx(prev); return go(inicioDe(prev)); }
     if (gestiona()) return go('portafolio');
-    setCtx(S.ctxs[0]); go('rinicio');
+    setCtx(S.ctxs[0]); go(inicioDe(S.ctxs[0]));
   } catch (err) { toast(traducir(err)); go('login'); }
 }
 // arrancar() se llama desde index.html, después de cargar modulos.js

@@ -159,3 +159,16 @@ nav.tabs button{position:relative}
 .qrcard small{color:#5d6b7e}
 .actfoto{width:100%;max-height:240px;object-fit:cover;border-radius:10px}
 @media print{nav.tabs,header.top,.noprint,.demo,.toast{display:none!important}body{background:#fff}.wrap{max-width:none;padding:0}.qrgrid{grid-template-columns:repeat(4,1fr)}}
+
+/* ---------- portería, reportes y avisos ---------- */
+.topbtns{display:flex;gap:6px;align-items:flex-start}
+.bell{position:relative;border:0;background:var(--brand-soft);color:var(--brand);width:36px;height:32px;border-radius:999px;display:grid;place-items:center;cursor:pointer}
+.bell .nbadge{top:-4px;right:-4px}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px;margin-top:6px}
+.thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:var(--line);cursor:zoom-in}
+.chatimg{display:block;max-width:220px;width:100%;border-radius:10px;margin-bottom:4px;cursor:zoom-in;background:var(--line);min-height:60px}
+.camb{padding:9px 10px;display:grid;place-items:center}
+.camb svg{width:20px;height:20px}
+.camb.lista{background:var(--accent-soft);color:var(--accent)}
+.alertcard{border:2px solid var(--accent);background:var(--accent-soft)}
+.dotnew{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bad);margin-right:6px;vertical-align:middle}

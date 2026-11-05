@@ -24,7 +24,7 @@
       <div class="sub" id="hsub"></div>
       <button class="conjbtn" id="conjBtn" hidden></button>
     </div>
-    <button class="badge-role" id="roleBtn">Cuenta ⇄</button>
+    <div class="topbtns"><button class="bell" id="notifBtn" hidden aria-label="Avisos"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4z"/><path d="M10 20a2 2 0 004 0"/></svg><span class="nbadge" id="notifN" hidden></span></button><button class="badge-role" id="roleBtn">Cuenta ⇄</button></div>
   </header>
   <main id="app"><div class="loading">Cargando…</div></main>
 </div>
@@ -36,6 +36,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="app.js"></script>
 <script src="modulos.js"></script>
+<script src="porteria.js"></script>
+<script>document.getElementById('notifBtn').addEventListener('click', () => go('notificaciones'));</script>
 <script>arrancar();</script>
 <script>
   if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
