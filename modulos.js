@@ -149,6 +149,7 @@ V.plataforma = async () => {
         <div class="row" style="justify-content:flex-end;gap:8px"><button type="button" class="btn sm ghost" data-act="sub" data-k="plan" data-v="" data-keep="1">Cancelar</button><button class="btn sm" type="submit">Guardar plan</button></div></form>`
       : `<div class="row" style="justify-content:flex-end;gap:8px;flex-wrap:wrap">
         ${r.estado === 'suspendida' ? `<button class="btn sm ghost" data-act="estadoCuenta" data-id="${r.id}" data-v="activa">Reactivar</button>` : r.estado === 'activa' ? `<button class="btn sm ghost danger-t" data-act="estadoCuenta" data-id="${r.id}" data-v="suspendida" data-confirm="¿Suspender?">Suspender</button>` : ''}
+        ${r.estado === 'pendiente' ? `<button class="btn sm ghost" data-act="pilotoGratis" data-id="${r.id}" data-confirm="¿Activar 30 días gratis?">Piloto gratis 30 días</button>` : ''}
         <button class="btn sm ghost" data-act="sub" data-k="plan" data-v="${r.id}" data-keep="1">Plan</button>
         <button class="btn sm" data-act="sub" data-k="pago" data-v="${r.id}" data-keep="1">${r.estado === 'pendiente' ? 'Registrar pago y autorizar' : 'Registrar pago'}</button></div>`}
   </div>`; };
@@ -332,6 +333,10 @@ Object.assign(ACT, {
   revisarCuenta: async () => { await cargarPlataforma(); render(); toast(cuentaOk() ? 'Tu cuenta está activa' : 'Aún no vemos el pago registrado'); },
   estadoCuenta: async d => { await q(sb.from('cuentas').update({ estado: d.v }).eq('id', d.id)); toast(d.v === 'activa' ? 'Cuenta reactivada' : 'Cuenta suspendida'); render(); },
   sub2: d => go(d.view, { id: d.id }),
+  pilotoGratis: async d => {
+    await q(sb.from('cuentas').update({ estado: 'activa', vigente_hasta: addDays(HOY(), 30), notas: 'Piloto gratis desde ' + fecha(HOY()) }).eq('id', d.id));
+    toast('Piloto activado por 30 días'); S.sub = { f: 'activa' }; render();
+  },
   otActivo: async d => {
     const a = await q(sb.from('activos').select('*').eq('id', d.id).single());
     await q(sb.from('ordenes').insert({ conjunto_id: C(), titulo: 'Daño en ' + a.nombre, ubicacion: a.ubicacion, prioridad: 'Alta', origen: 'Inventario ' + a.codigo, activo_id: a.id }));
