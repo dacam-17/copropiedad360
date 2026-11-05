@@ -148,3 +148,14 @@ textarea{resize:vertical}
 nav.tabs button{position:relative}
 
 .login h1 .tag{display:inline-block;font-family:var(--body);font-size:13px;font-weight:700;background:var(--accent-soft);color:var(--accent);padding:3px 9px;border-radius:999px;vertical-align:middle;margin-left:4px}
+
+/* ---------- módulos: plataforma, inventario, documentos ---------- */
+.alert-bad{background:var(--bad-soft);border-color:var(--bad)}
+.qrbox{background:#fff;padding:8px;border-radius:10px;display:inline-block;line-height:0}
+.qrbox img,.qrbox canvas{display:block}
+.qrgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.qrcard{background:#fff;color:#15233a;border:1px dashed #9aa6b5;border-radius:10px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;font-size:12px;break-inside:avoid}
+.qrcard b{font-family:var(--mono);font-size:13px}
+.qrcard small{color:#5d6b7e}
+.actfoto{width:100%;max-height:240px;object-fit:cover;border-radius:10px}
+@media print{nav.tabs,header.top,.noprint,.demo,.toast{display:none!important}body{background:#fff}.wrap{max-width:none;padding:0}.qrgrid{grid-template-columns:repeat(4,1fr)}}

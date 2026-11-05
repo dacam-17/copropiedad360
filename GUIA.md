@@ -115,4 +115,6 @@ En **Ajustes → Equipo de gestión** escribe el correo y escoge el rol:
 | `styles.css` | Diseño |
 | `config.js` | Conexión a tu Supabase (lo único que editas) |
 | `supabase/01_esquema.sql` | Tablas, reglas de seguridad y funciones |
+| `supabase/02_plataforma_inventario.sql` | Panel del dueño, suscripciones, inventario y documentos |
+| `modulos.js` | Pantallas de plataforma, inventario y documentos |
 | `manifest.webmanifest`, `sw.js`, íconos | Para instalarla como app en el celular |

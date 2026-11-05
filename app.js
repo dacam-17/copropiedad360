@@ -65,7 +65,7 @@ const S = { user: null, ctxs: [], ctx: null, view: 'cargando', sub: {}, unread: 
 const C = () => S.ctx && S.ctx.conjunto_id;
 const U = () => S.ctx && S.ctx.unidad_id;
 const ROL = () => S.ctx && S.ctx.rol;
-const W = () => ROL() === 'admin';                 // puede escribir como administración
+const W = () => ROL() === 'admin' && S.ctx.vigente !== false;                 // puede escribir como administración
 const R = () => ROL() === 'residente';
 const gestiona = () => S.ctxs.some(c => c.rol !== 'residente');
 
@@ -99,7 +99,7 @@ function nav() {
   if (!show) return;
   const tabs = TABS[ROL()];
   const enMas = ['mas', 'rmas'];
-  const deMas = { admin: ['reservas', 'pqrs', 'asamblea', 'info', 'config'], consejo: ['pqrs', 'asamblea', 'info'], residente: ['rpqrs', 'rdano', 'asamblea', 'info'] }[ROL()];
+  const deMas = { admin: ['reservas', 'pqrs', 'asamblea', 'info', 'config', 'inventario', 'activo', 'qrs', 'documentos'], consejo: ['pqrs', 'asamblea', 'info', 'inventario', 'activo', 'qrs', 'documentos'], residente: ['rpqrs', 'rdano', 'asamblea', 'info', 'documentos'] }[ROL()];
   $('nav').innerHTML = tabs.map(([k, l]) => {
     const cur = S.view === k || (enMas.includes(k) && deMas.includes(S.view));
     const ico = k === 'rinicio' ? 'inicio' : k === 'pagos' ? 'cartera' : k === 'rmas' ? 'mas' : k;
@@ -143,7 +143,8 @@ async function cargarAccesos() {
 
 async function inicioSesion() {
   await cargarAccesos();
-  if (!S.ctxs.length) return go('sinacceso');
+  if (typeof rutaQR === 'function' && await rutaQR()) return;
+  if (!S.ctxs.length) return go(S.plat && S.plat.dueno ? 'plataforma' : 'sinacceso');
   if (gestiona()) { S.ctx = null; return go('portafolio'); }
   setCtx(S.ctxs[0]); go('rinicio');
 }
@@ -232,8 +233,8 @@ V.sinacceso = async () => `<div class="stack">
   <div class="card stack"><h2>Aún no tienes un conjunto asignado</h2>
   <p><b>Si eres residente:</b> pide a la administración de tu conjunto que registre tu correo <b>${esc(S.user.email)}</b> en tu apartamento. Cuando lo hagan, toca el botón de abajo.</p>
   <button class="btn ghost" data-act="reintentar">Ya me registraron, revisar de nuevo</button></div>
-  <div class="card stack"><p><b>Si administras copropiedades:</b> crea tu primer conjunto y empieza a cargar la información.</p>
-  <button class="btn" data-act="ir" data-v="nuevo">Crear un conjunto</button></div>
+  <div class="card stack"><p><b>Si administras copropiedades:</b> solicita tu acceso. Cuando confirmemos el pago, podrás crear tus conjuntos.</p>
+  <button class="btn" data-act="ir" data-v="nuevo">Soy administrador</button></div>
   <button class="linkbtn" data-act="salir">Cerrar sesión</button></div>`;
 
 V.nuevo = async () => `<div class="stack"><h2>Nuevo conjunto</h2>
@@ -281,6 +282,10 @@ V.portafolio = async () => {
     if (r.cargado_mes > 0 && r.recaudado_mes / r.cargado_mes < .8) alertas.push({ r, sev: 'warn', go: 'cartera', t: `Recaudo del mes en ${Math.round(r.recaudado_mes / r.cargado_mes * 100)}%` });
     if (r.chats_sin_leer > 0 && r.rol === 'admin') alertas.push({ r, sev: 'warn', go: 'chat', t: `${r.chats_sin_leer} mensaje${r.chats_sin_leer > 1 ? 's' : ''} de chat sin leer` });
     if (r.pqrs_abiertas > 0) alertas.push({ r, sev: 'info', go: 'pqrs', t: `${r.pqrs_abiertas} PQRS esperando respuesta` });
+    if (r.vigente === false) alertas.push({ r, sev: 'bad', go: 'inicio', t: 'Suscripción vencida: el conjunto está en solo lectura' });
+    if (r.activos_malos > 0) alertas.push({ r, sev: 'bad', go: 'inventario', t: `${r.activos_malos} equipo(s) en mal estado o fuera de servicio` });
+    if (r.docs_por_vencer > 0) alertas.push({ r, sev: 'warn', go: 'documentos', t: `${r.docs_por_vencer} documento(s) vencidos o por vencer (pólizas, certificados)` });
+    if (r.garantias_por_vencer > 0) alertas.push({ r, sev: 'info', go: 'inventario', t: `${r.garantias_por_vencer} garantía(s) de equipos vencen este mes` });
     if (Number(r.unidades) === 0) alertas.push({ r, sev: 'info', go: 'config', t: 'Falta cargar las unidades del conjunto' });
   });
   const ord = { bad: 0, warn: 1, info: 2 };
@@ -421,12 +426,13 @@ V.mant = async () => {
   const seg = `<div class="seg" role="group" aria-label="Tipo de mantenimiento">${[['preventivo', 'Preventivo'], ['correctivo', 'Daños y órdenes'], ['costos', 'Costos']].map(([k, l]) => `<button data-act="sub" data-k="t" data-v="${k}" aria-pressed="${t === k}">${l}</button>`).join('')}</div>`;
   let body = '';
   if (t === 'preventivo') {
-    const plan = await q(sb.from('mant_plan').select('*').eq('conjunto_id', C()).order('proximo'));
+    const [plan, acts] = await Promise.all([q(sb.from('mant_plan').select('*').eq('conjunto_id', C()).order('proximo')), q(sb.from('activos').select('id, codigo, nombre').eq('conjunto_id', C()).order('codigo'))]);
     body = `${W() ? `<details class="card" ${plan.length ? '' : 'open'}><summary><b>+ Agregar al plan</b></summary><form class="form mt" data-form="plan">
       <div><label for="pl-a">Equipo o actividad</label><input id="pl-a" name="activo" required placeholder="Ej. Ascensores, lavado de tanques, extintores"></div>
       <div class="two"><div><label for="pl-f">Frecuencia</label><select id="pl-f" name="freq">${Object.entries(FREQ).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
       <div><label for="pl-p">Próxima fecha</label><input id="pl-p" name="proximo" type="date" value="${HOY()}" required></div></div>
       <div class="two"><div><label for="pl-pr">Proveedor</label><input id="pl-pr" name="proveedor"></div><div><label for="pl-c">Costo por visita</label><input id="pl-c" name="costo" type="number" min="0" step="1000"></div></div>
+      <div><label for="pl-ac">Equipo del inventario (opcional)</label><select id="pl-ac" name="activo"><option value="">Ninguno</option>${acts.map(x => `<option value="${x.id}">${esc(x.codigo)} · ${esc(x.nombre)}</option>`).join('')}</select></div>
       <div><label for="pl-n">Nota (certificados, requisitos)</label><input id="pl-n" name="nota"></div>
       <button class="btn" type="submit">Guardar</button></form></details>` : ''}
       ${plan.map(p => { const [e, cl, tx] = estadoPrev(p); return `<div class="card">
@@ -437,13 +443,14 @@ V.mant = async () => {
         ${W() ? `<div class="row" style="margin-top:10px;justify-content:flex-end;gap:8px;flex-wrap:wrap"><button class="btn sm ghost danger-t" data-act="borrar" data-tabla="mant_plan" data-id="${p.id}" data-confirm="¿Borrar del plan?">Borrar</button><button class="btn sm ghost" data-act="planOT" data-id="${p.id}">Crear orden</button><button class="btn sm" data-act="ejecutar" data-id="${p.id}" data-f="${p.frecuencia_meses}">Registrar ejecución</button></div>` : ''}
       </div>`; }).join('') || '<div class="card sub">Aún no hay equipos en el plan de mantenimiento preventivo.</div>'}`;
   } else if (t === 'correctivo') {
-    const ords = await q(sb.from('ordenes').select('*').eq('conjunto_id', C()).order('created_at', { ascending: false }).limit(150));
+    const [ords, acts] = await Promise.all([q(sb.from('ordenes').select('*').eq('conjunto_id', C()).order('created_at', { ascending: false }).limit(150)), q(sb.from('activos').select('id, codigo, nombre').eq('conjunto_id', C()).order('codigo'))]);
     const orden = { 'Reportada': 0, 'En curso': 1, 'Cerrada': 2 };
     ords.sort((a, b) => orden[a.estado] - orden[b.estado]);
     body = `${W() ? `<details class="card"><summary><b>+ Reportar daño</b></summary><form class="form mt" data-form="orden">
       <div><label for="ot-t">Qué pasó</label><input id="ot-t" name="titulo" required placeholder="Ej. bombillo fundido en escalera T4"></div>
       <div class="two"><div><label for="ot-u">Ubicación</label><input id="ot-u" name="ubicacion" required></div><div><label for="ot-p">Prioridad</label><select id="ot-p" name="prioridad"><option>Alta</option><option selected>Media</option><option>Baja</option></select></div></div>
       <div><label for="ot-r">Responsable</label><input id="ot-r" name="responsable" placeholder="Todero, proveedor…"></div>
+      <div><label for="ot-ac">Equipo del inventario (opcional)</label><select id="ot-ac" name="activo"><option value="">Ninguno</option>${acts.map(x => `<option value="${x.id}">${esc(x.codigo)} · ${esc(x.nombre)}</option>`).join('')}</select></div>
       <div><label for="ot-f">Foto del daño</label><input id="ot-f" name="foto" type="file" accept="image/*"></div>
       <button class="btn" type="submit">Crear orden de trabajo</button></form></details>` : ''}
       ${ords.map(o => `<div class="card"><div class="row"><span class="mono" style="color:var(--muted)">OT-${String(o.numero).padStart(4, '0')}</span><span class="chip ${chipEstado[o.estado]}">${o.estado}</span></div>
@@ -538,12 +545,12 @@ AFTER.chat = () => {
 
 /* ---------- menús "Más" ---------- */
 V.mas = async () => {
-  const items = [['reservas', 'Reservas', 'Zonas comunes y depósitos'], ['pqrs', 'PQRS', 'Peticiones, quejas, reclamos y sugerencias'], ['asamblea', 'Asamblea y votaciones', 'Votación ponderada por coeficiente'], ['info', 'Circulares e información', 'Avisos, horarios y teléfonos'], ['config', 'Ajustes del conjunto', 'Unidades, zonas, equipo y datos generales']]
+  const items = [['reservas', 'Reservas', 'Zonas comunes y depósitos'], ['inventario', 'Inventario y equipos', 'Hoja de vida, estado, garantías y códigos QR'], ['documentos', 'Documentos', 'Reglamento, actas, pólizas y certificados con vencimientos'], ['pqrs', 'PQRS', 'Peticiones, quejas, reclamos y sugerencias'], ['asamblea', 'Asamblea y votaciones', 'Votación ponderada por coeficiente'], ['info', 'Circulares e información', 'Avisos, horarios y teléfonos'], ['config', 'Ajustes del conjunto', 'Unidades, zonas, equipo y datos generales']]
     .filter(([k]) => W() || !['config'].includes(k));
   return `<div class="stack"><h2>Más</h2>${items.map(([k, t, s]) => `<button class="card navcard" data-act="tab" data-v="${k}"><div class="ico">${svg(k)}</div><div class="grow"><h3>${t}</h3><div class="sub">${s}</div></div><span class="sub">›</span></button>`).join('')}</div>`;
 };
 V.rmas = async () => {
-  const items = [['rpqrs', 'PQRS', 'Radica una petición, queja, reclamo o sugerencia', 'pqrs'], ['rdano', 'Reportar un daño', 'Algo dañado en zonas comunes', 'dano'], ['asamblea', 'Asamblea', 'Votaciones y documentos', 'asamblea'], ['info', 'Circulares e información', 'Avisos, horarios y teléfonos', 'info']];
+  const items = [['rpqrs', 'PQRS', 'Radica una petición, queja, reclamo o sugerencia', 'pqrs'], ['rdano', 'Reportar un daño', 'Algo dañado en zonas comunes', 'dano'], ['asamblea', 'Asamblea', 'Votaciones y documentos', 'asamblea'], ['documentos', 'Documentos del conjunto', 'Reglamento, actas y manual de convivencia', 'documentos'], ['info', 'Circulares e información', 'Avisos, horarios y teléfonos', 'info']];
   return `<div class="stack"><h2>Más</h2>${items.map(([k, t, s, i]) => `<button class="card navcard" data-act="tab" data-v="${k}"><div class="ico">${svg(i)}</div><div class="grow"><h3>${t}</h3><div class="sub">${s}</div></div><span class="sub">›</span></button>`).join('')}
   <button class="linkbtn" data-act="ir" data-v="contextos">Cambiar de conjunto o cerrar sesión</button></div>`;
 };
@@ -824,12 +831,12 @@ const FORM = {
     toast('Comprobante enviado. La administración lo revisará.'); render();
   },
   plan: async f => {
-    await q(sb.from('mant_plan').insert({ conjunto_id: C(), activo: f.activo, frecuencia_meses: Number(f.freq), proximo: f.proximo, proveedor: f.proveedor || null, costo: Number(f.costo) || 0, nota: f.nota || null }));
+    await q(sb.from('mant_plan').insert({ conjunto_id: C(), activo: f.activo, frecuencia_meses: Number(f.freq), proximo: f.proximo, proveedor: f.proveedor || null, costo: Number(f.costo) || 0, nota: f.nota || null, activo_id: f.activo || null }));
     toast('Agregado al plan'); render();
   },
   orden: async (f, form) => {
     const foto = await subir(form.foto.files[0], 'danos');
-    await q(sb.from('ordenes').insert({ conjunto_id: C(), titulo: f.titulo, ubicacion: f.ubicacion, prioridad: f.prioridad, responsable: f.responsable || null, origen: 'Administración', foto }));
+    await q(sb.from('ordenes').insert({ conjunto_id: C(), titulo: f.titulo, ubicacion: f.ubicacion, prioridad: f.prioridad, responsable: f.responsable || null, origen: 'Administración', foto, activo_id: f.activo || null }));
     toast('Orden de trabajo creada'); render();
   },
   dano: async (f, form) => {
@@ -939,7 +946,8 @@ async function arrancar() {
   if (RECUPERACION) return go('clave');
   try {
     await cargarAccesos();
-    if (!S.ctxs.length) return go('sinacceso');
+    if (typeof rutaQR === 'function' && await rutaQR()) return;
+    if (!S.ctxs.length) return go(S.plat && S.plat.dueno ? 'plataforma' : 'sinacceso');
     let guardado = ''; try { guardado = localStorage.getItem('c360_ctx') || ''; } catch (e) { }
     const [gid, grol] = guardado.split('|');
     const prev = S.ctxs.find(c => c.conjunto_id === gid && c.rol === grol);
@@ -948,4 +956,4 @@ async function arrancar() {
     setCtx(S.ctxs[0]); go('rinicio');
   } catch (err) { toast(traducir(err)); go('login'); }
 }
-arrancar();
+// arrancar() se llama desde index.html, después de cargar modulos.js
