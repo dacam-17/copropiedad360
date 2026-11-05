@@ -1,4 +1,4 @@
-# Copropiedad 360 · Guía para montar el piloto
+# SYAPH360 - Al día · Guía para montar el piloto
 
 Esta carpeta es la app completa. Para que funcione necesitas dos cosas gratuitas:
 

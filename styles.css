@@ -146,3 +146,5 @@ details[open] > summary::before{content:"▾ "}
 #nuevoChat{flex:1;min-width:0}
 textarea{resize:vertical}
 nav.tabs button{position:relative}
+
+.login h1 .tag{display:inline-block;font-family:var(--body);font-size:13px;font-weight:700;background:var(--accent-soft);color:var(--accent);padding:3px 9px;border-radius:999px;vertical-align:middle;margin-left:4px}

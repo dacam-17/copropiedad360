@@ -1,5 +1,5 @@
 /* =====================================================================
-   Copropiedad 360 · App piloto
+   SYAPH360 - Al día · App piloto
    Interfaz de una sola página conectada a Supabase (base de datos,
    usuarios, archivos y chat en tiempo real).
    ===================================================================== */
@@ -220,7 +220,7 @@ V.login = async () => {
       <div><label for="rc-e">Correo de tu cuenta</label><input id="rc-e" name="email" type="email" required></div>
       <button class="btn" type="submit">Enviarme el enlace</button>
       <button class="linkbtn" type="button" data-act="modo" data-v="entrar">Volver</button></form>`;
-  return `<div class="login"><div class="brand"><div class="logo">${svg('inicio')}</div><div><div class="eyebrow">Copropiedad 360</div><h1>Tu conjunto, en orden</h1></div></div>
+  return `<div class="login"><div class="brand"><div class="logo">${svg('inicio')}</div><div><div class="eyebrow">Tu conjunto, en orden</div><h1>SYAPH360 <span class="tag">Al día</span></h1></div></div>
     <div class="card stack">${m !== 'recuperar' ? tabs : '<h2>Recuperar contraseña</h2>'}${f}</div></div>`;
 };
 
