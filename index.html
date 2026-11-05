@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Copropiedad 360</title>
+<meta name="description" content="Administración de conjuntos residenciales: cartera, mantenimientos, reservas, PQRS, chat y asambleas.">
+<meta name="theme-color" content="#1f4e79">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Copropiedad 360">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top" id="top" hidden>
+    <div style="min-width:0">
+      <div class="eyebrow">Copropiedad 360</div>
+      <h1 id="htitle"></h1>
+      <div class="sub" id="hsub"></div>
+      <button class="conjbtn" id="conjBtn" hidden></button>
+    </div>
+    <button class="badge-role" id="roleBtn">Cuenta ⇄</button>
+  </header>
+  <main id="app"><div class="loading">Cargando…</div></main>
+</div>
+<nav class="tabs" id="navWrap" aria-label="Secciones" hidden><div class="in" id="nav"></div></nav>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.9/dist/umd/supabase.js"></script>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
