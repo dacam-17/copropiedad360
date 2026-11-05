@@ -527,6 +527,9 @@ V.chat = async () => {
     q(sb.from('mensajes').select('unidad_id, texto, de_admin, leido, created_at, unidades(codigo, propietario)').eq('conjunto_id', C()).order('created_at', { ascending: false }).limit(500)),
     q(sb.from('unidades').select('id, codigo').eq('conjunto_id', C()).order('codigo'))
   ]);
+  if (!unidades.length) return `<div class="stack"><h2>Atención por chat</h2><div class="card stack" style="gap:8px"><h3>Primero carga las unidades</h3>
+    <p style="margin:0">El chat funciona por apartamento: cada unidad tiene su conversación con la administración. Carga las unidades con el correo de cada residente y, cuando ellos creen su cuenta, podrán escribirte aquí.</p>
+    <button class="btn" data-act="tab" data-v="config" style="align-self:flex-start">Ir a cargar unidades</button></div></div>`;
   const hilos = [];
   msgs.forEach(m => {
     let h = hilos.find(x => x.id === m.unidad_id);
