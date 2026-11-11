@@ -206,3 +206,34 @@ nav.tabs button{position:relative}
 .carta{font-size:14px;line-height:1.55;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:16px}
 .carta p{margin:0 0 10px}
 .navcard .grow{min-width:0;flex:1}
+
+/* Identidad y cuenta de cobro */
+.hlogo{width:46px;height:46px;border-radius:12px;object-fit:contain;background:#fff;border:1px solid var(--line);flex:none}
+.hlogo+div{flex:1}
+.logoprev{width:72px;height:72px;border-radius:14px;border:1px dashed var(--line);display:grid;place-items:center;font-size:11px;color:var(--muted);overflow:hidden;background:#fff;flex:none}
+.logoprev img{width:100%;height:100%;object-fit:contain}
+details.card h3{margin:14px 0 2px;font-size:14px}
+.hoja{background:#fff;color:#1b1b1b;border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:14px;font-size:13px}
+.hoja-top{display:flex;gap:14px;align-items:flex-start;border-bottom:2px solid #1b1b1b;padding-bottom:12px}
+.hoja-top h2{margin:0 0 2px;font-size:18px}
+.hoja-top .grow{min-width:0;flex:1;color:#444}
+.hoja-logo{width:64px;height:64px;object-fit:contain;flex:none}
+.hoja-num{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;white-space:nowrap}
+.hoja-num b{font-size:13px;letter-spacing:.06em}
+.hoja-dest{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.hoja-dest div{display:flex;flex-direction:column;background:#f4f4f2;border-radius:8px;padding:8px 10px}
+.hoja-dest span,.hoja-firmas span{font-size:11px;color:#666}
+.hoja-tabla{width:100%;border-collapse:collapse}
+.hoja-tabla th,.hoja-tabla td{padding:7px 4px;border-bottom:1px solid #ddd;text-align:left}
+.hoja-tabla th:last-child,.hoja-tabla td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.hoja-tabla .tot td{font-weight:700;font-size:15px;border-bottom:2px solid #1b1b1b}
+.hoja-vence{font-size:14px}
+.hoja-pago{border:1.5px solid #1b1b1b;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px}
+.hoja-pago .ref{font-size:16px;letter-spacing:.04em}
+.hoja-pago .sub{color:#666}
+.hoja-nota{margin:0;color:#444;font-size:12px}
+.hoja-firmas{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;border-top:1px solid #ddd;padding-top:10px}
+.hoja-firmas div{display:flex;flex-direction:column}
+.hoja-pie{font-size:10.5px;color:#777;text-align:center}
+@media (max-width:520px){.hoja{padding:14px}.hoja-top{flex-wrap:wrap}.hoja-num{align-items:flex-start;text-align:left;width:100%}}
+@media print{.hoja{border:0;border-radius:0;padding:0;break-after:page;page-break-after:always}.hoja:last-of-type{break-after:auto}.hlogo{display:none}}
