@@ -30,7 +30,7 @@ create table public.puntos (
   torre text,
   piso text,
   descripcion text,
-  token text not null default encode(gen_random_bytes(9), 'hex'),   -- va grabado en la etiqueta NFC
+  token text not null default replace(gen_random_uuid()::text, '-', ''),   -- va grabado en la etiqueta NFC
   orden int not null default 0,
   created_at timestamptz not null default now(),
   unique (conjunto_id, nombre)
