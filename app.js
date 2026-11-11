@@ -68,7 +68,7 @@ const ROL = () => S.ctx && S.ctx.rol;
 const W = () => ROL() === 'admin' && S.ctx.vigente !== false;                 // puede escribir como administración
 const R = () => ROL() === 'residente';
 const gestiona = () => S.ctxs.some(c => c.rol === 'admin' || c.rol === 'consejo');
-const inicioDe = c => c.rol === 'residente' ? 'rinicio' : c.rol === 'porteria' ? 'porteria' : 'inicio';
+const inicioDe = c => c.rol === 'residente' ? 'rinicio' : c.rol === 'porteria' ? 'porteria' : c.rol === 'proveedor' ? 'pagenda' : 'inicio';
 
 const TABS = {
   admin: [['inicio', 'Inicio'], ['cartera', 'Cartera'], ['mant', 'Mantenim.'], ['chat', 'Chat'], ['mas', 'Más']],
@@ -87,7 +87,7 @@ function header() {
   const enPortafolio = S.view === 'portafolio' || !S.ctx || ['sinacceso', 'nuevo', 'contextos'].includes(S.view);
   $('htitle').textContent = enPortafolio ? (S.view === 'contextos' ? 'Mis accesos' : 'Mis conjuntos') : S.ctx.nombre;
   $('hsub').textContent = enPortafolio ? (S.user ? S.user.email : '')
-    : R() ? `Apto ${S.ctx.unidad_codigo || ''} · Residente` : `${S.ctx.ciudad || ''}${S.ctx.ciudad ? ' · ' : ''}${ROL() === 'admin' ? 'Administración' : ROL() === 'porteria' ? 'Portería' : 'Consejo de administración'}`;
+    : R() ? `Apto ${S.ctx.unidad_codigo || ''} · Residente` : `${S.ctx.ciudad || ''}${S.ctx.ciudad ? ' · ' : ''}${ROL() === 'admin' ? 'Administración' : ROL() === 'porteria' ? 'Portería' : ROL() === 'proveedor' ? 'Proveedor de mantenimiento' : 'Consejo de administración'}`;
   const cb = $('conjBtn');
   cb.hidden = !(gestiona() && S.ctx && !enPortafolio);
   cb.innerHTML = `▦ Todos mis conjuntos`;
@@ -100,9 +100,9 @@ function nav() {
   if (!show) return;
   const tabs = TABS[ROL()];
   const enMas = ['mas', 'rmas'];
-  const deMas = { admin: ['reservas', 'pqrs', 'asamblea', 'info', 'config', 'inventario', 'activo', 'qrs', 'documentos', 'reportes', 'reportar', 'bitacora', 'notificaciones'], consejo: ['pqrs', 'asamblea', 'info', 'inventario', 'activo', 'qrs', 'documentos', 'reportes', 'reportar', 'bitacora', 'notificaciones'], residente: ['rpqrs', 'rdano', 'asamblea', 'info', 'documentos', 'reportar', 'misreportes', 'misvisitas', 'mispaquetes', 'notificaciones'], porteria: ['reportar', 'notificaciones'] }[ROL()] || [];
+  const deMas = { admin: ['reservas', 'pqrs', 'asamblea', 'info', 'config', 'inventario', 'activo', 'qrs', 'documentos', 'reportes', 'reportar', 'bitacora', 'notificaciones'], consejo: ['pqrs', 'asamblea', 'info', 'inventario', 'activo', 'qrs', 'documentos', 'reportes', 'reportar', 'bitacora', 'notificaciones'], residente: ['rpqrs', 'rdano', 'asamblea', 'info', 'documentos', 'reportar', 'misreportes', 'misvisitas', 'mispaquetes', 'notificaciones'], porteria: ['reportar', 'notificaciones', 'ejec'], proveedor: ['ejec', 'proveedor'] }[ROL()] || [];
   $('nav').innerHTML = tabs.map(([k, l]) => {
-    const cur = S.view === k || (enMas.includes(k) && deMas.includes(S.view));
+    const cur = S.view === k || (enMas.includes(k) && deMas.includes(S.view)) || (k === 'mant' && ['ejec', 'proveedor'].includes(S.view));
     const ico = k === 'rinicio' ? 'inicio' : k === 'pagos' ? 'cartera' : k === 'rmas' ? 'mas' : k;
     return `<button data-act="tab" data-v="${k}" aria-current="${cur}">${k === 'chat' && S.unread ? `<span class="nbadge">${S.unread}</span>` : ''}${svg(ico)}${l}</button>`;
   }).join('');
@@ -132,11 +132,11 @@ async function render() {
 /* ---------- sesión y accesos ---------- */
 async function cargarAccesos() {
   try { await sb.rpc('reclamar_invitaciones'); } catch (e) { /* sin invitaciones */ }
-  const rows = await q(sb.from('miembros').select('rol, unidad_id, conjunto_id, conjuntos(id, nombre, ciudad)').eq('user_id', S.user.id));
+  const rows = await q(sb.from('miembros').select('rol, unidad_id, proveedor_id, conjunto_id, conjuntos(id, nombre, ciudad)').eq('user_id', S.user.id));
   const uids = rows.filter(r => r.unidad_id).map(r => r.unidad_id);
   const unis = uids.length ? await q(sb.from('unidades').select('id, codigo').in('id', uids)) : [];
   S.ctxs = rows.filter(r => r.conjuntos).map(r => ({
-    conjunto_id: r.conjunto_id, rol: r.rol, unidad_id: r.unidad_id,
+    conjunto_id: r.conjunto_id, rol: r.rol, unidad_id: r.unidad_id, proveedor_id: r.proveedor_id,
     nombre: r.conjuntos.nombre, ciudad: r.conjuntos.ciudad,
     unidad_codigo: (unis.find(u => u.id === r.unidad_id) || {}).codigo
   })).filter(c => c.rol !== 'residente' || c.unidad_id)
@@ -160,7 +160,7 @@ function setCtx(ctx) {
 
 function suscribirChat() {
   if (S.canal) { sb.removeChannel(S.canal); S.canal = null; }
-  if (!S.ctx || ROL() === 'consejo' || ROL() === 'porteria') return;
+  if (!S.ctx || !['admin', 'residente'].includes(ROL())) return;
   S.canal = sb.channel('chat-' + C())
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes', filter: 'conjunto_id=eq.' + C() }, () => {
       if (S.view === 'chat') render(); else refrescarNoLeidos();
@@ -168,7 +168,7 @@ function suscribirChat() {
 }
 
 async function refrescarNoLeidos() {
-  if (!S.ctx || ROL() === 'consejo' || ROL() === 'porteria') { S.unread = 0; nav(); return; }
+  if (!S.ctx || !['admin', 'residente'].includes(ROL())) { S.unread = 0; nav(); return; }
   let p = sb.from('mensajes').select('id', { count: 'exact', head: true }).eq('conjunto_id', C()).eq('leido', false);
   p = R() ? p.eq('de_admin', true).eq('unidad_id', U()) : p.eq('de_admin', false);
   const r = await p;
@@ -250,7 +250,7 @@ V.nuevo = async () => `<div class="stack"><h2>Nuevo conjunto</h2>
 
 V.contextos = async () => {
   const g = S.ctxs.filter(c => c.rol !== 'residente'), r = S.ctxs.filter(c => c.rol === 'residente');
-  const fila = c => `<button class="card navcard" data-act="entrar" data-id="${c.conjunto_id}" data-rol="${c.rol}"><div class="ico">${iniciales(c.nombre)}</div><div class="grow"><h3>${esc(c.nombre)}</h3><div class="sub">${c.rol === 'admin' ? 'Administración' : c.rol === 'consejo' ? 'Consejo' : c.rol === 'porteria' ? 'Portería' : 'Residente · ' + esc(c.unidad_codigo)}</div></div><span class="sub">›</span></button>`;
+  const fila = c => `<button class="card navcard" data-act="entrar" data-id="${c.conjunto_id}" data-rol="${c.rol}"><div class="ico">${iniciales(c.nombre)}</div><div class="grow"><h3>${esc(c.nombre)}</h3><div class="sub">${c.rol === 'admin' ? 'Administración' : c.rol === 'consejo' ? 'Consejo' : c.rol === 'porteria' ? 'Portería' : c.rol === 'proveedor' ? 'Proveedor de mantenimiento' : 'Residente · ' + esc(c.unidad_codigo)}</div></div><span class="sub">›</span></button>`;
   return `<div class="stack">
     ${g.length ? `<button class="btn" data-act="ir" data-v="portafolio">▦ Panel de todos mis conjuntos</button>` : ''}
     ${g.length ? `<h3>Conjuntos que gestiono</h3>${g.map(fila).join('')}` : ''}
@@ -431,12 +431,14 @@ V.mant = async () => {
   let body = '';
   if (t === 'preventivo') {
     const [plan, acts] = await Promise.all([q(sb.from('mant_plan').select('*').eq('conjunto_id', C()).order('proximo')), q(sb.from('activos').select('id, codigo, nombre').eq('conjunto_id', C()).order('codigo'))]);
+    const provs = W() ? await q(sb.from('proveedores').select('id, nombre').eq('conjunto_id', C()).order('nombre')) : [];
     body = `${W() ? `<details class="card" ${plan.length ? '' : 'open'}><summary><b>+ Agregar al plan</b></summary><form class="form mt" data-form="plan">
       <div><label for="pl-a">Equipo o actividad</label><input id="pl-a" name="activo" required placeholder="Ej. Ascensores, lavado de tanques, extintores"></div>
       <div class="two"><div><label for="pl-f">Frecuencia</label><select id="pl-f" name="freq">${Object.entries(FREQ).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
       <div><label for="pl-p">Próxima fecha</label><input id="pl-p" name="proximo" type="date" value="${HOY()}" required></div></div>
       <div class="two"><div><label for="pl-pr">Proveedor</label><input id="pl-pr" name="proveedor"></div><div><label for="pl-c">Costo por visita</label><input id="pl-c" name="costo" type="number" min="0" step="1000"></div></div>
       <div><label for="pl-ac">Equipo del inventario (opcional)</label><select id="pl-ac" name="activo"><option value="">Ninguno</option>${acts.map(x => `<option value="${x.id}">${esc(x.codigo)} · ${esc(x.nombre)}</option>`).join('')}</select></div>
+      <div class="two"><div><label for="pl-pv">Proveedor registrado</label><select id="pl-pv" name="proveedor_id"><option value="">Personal interno / otro</option>${provs.map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('')}</select></div><div><label for="pl-tp">Tipo</label><select id="pl-tp" name="tipo"><option>Preventivo</option><option>Predictivo</option><option>Correctivo</option></select></div></div>
       <div><label for="pl-n">Nota (certificados, requisitos)</label><input id="pl-n" name="nota"></div>
       <button class="btn" type="submit">Guardar</button></form></details>` : ''}
       ${plan.map(p => { const [e, cl, tx] = estadoPrev(p); return `<div class="card">
@@ -838,7 +840,7 @@ const FORM = {
     toast('Comprobante enviado. La administración lo revisará.'); render();
   },
   plan: async f => {
-    await q(sb.from('mant_plan').insert({ conjunto_id: C(), activo: f.activo, frecuencia_meses: Number(f.freq), proximo: f.proximo, proveedor: f.proveedor || null, costo: Number(f.costo) || 0, nota: f.nota || null, activo_id: f.activo || null }));
+    await q(sb.from('mant_plan').insert({ conjunto_id: C(), activo: f.activo, frecuencia_meses: Number(f.freq), proximo: f.proximo, proveedor: f.proveedor || null, costo: Number(f.costo) || 0, nota: f.nota || null, activo_id: f.activo || null, proveedor_id: f.proveedor_id || null, tipo: f.tipo || 'Preventivo' }));
     toast('Agregado al plan'); render();
   },
   orden: async (f, form) => {
