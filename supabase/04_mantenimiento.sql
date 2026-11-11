@@ -164,10 +164,10 @@ begin
     update mant_plan set ultimo = hoy(), proximo = (hoy() + make_interval(months => frecuencia_meses))::date where id = new.plan_id;
     if new.equipo_estado is not null then update activos set estado = new.equipo_estado where id = new.activo_id; end if;
     perform notificar(new.conjunto_id, null, null, true, false, false, 'Mantenimiento liberado: ' || v_t,
-      coalesce(new.novedades, 'Sin novedades') || coalesce(' · Costo ' || to_char(new.costo, 'FM999G999G999'), ''), 'mant', 'mant');
+      coalesce(new.novedades, 'Sin novedades') || coalesce(' · Costo ' || replace(to_char(new.costo, 'FM999,999,999,999'), ',', '.'), ''), 'mant', 'mant');
     if new.proximo_cambio is not null then
       perform notificar(new.conjunto_id, null, null, true, false, false, 'Alerta preventiva: ' || coalesce(v_act, new.titulo),
-        new.proximo_cambio || coalesce(' para ' || to_char(new.proximo_cambio_fecha, 'DD/MM/YYYY'), '') || coalesce(' · estimado $' || to_char(new.proximo_cambio_costo, 'FM999G999G999'), ''), 'mant', 'mant');
+        new.proximo_cambio || coalesce(' para ' || to_char(new.proximo_cambio_fecha, 'DD/MM/YYYY'), '') || coalesce(' · estimado $' || replace(to_char(new.proximo_cambio_costo, 'FM999,999,999,999'), ',', '.'), ''), 'mant', 'mant');
     end if;
   elsif new.estado = 'No realizado' then
     perform notificar(new.conjunto_id, null, null, true, false, false, 'No se realizó: ' || v_t, coalesce(new.motivo_no_realizado, 'Sin motivo registrado'), 'mant', 'mant');
@@ -283,7 +283,7 @@ begin
   for r in select e.*, a.nombre act from ejecuciones e left join activos a on a.id = e.activo_id
            where e.proximo_cambio_fecha = hoy() + 15 loop
     perform notificar(r.conjunto_id, null, null, true, false, false, 'Cambio en 15 días: ' || coalesce(r.act, r.titulo),
-      r.proximo_cambio || coalesce(' · estimado $' || to_char(r.proximo_cambio_costo, 'FM999G999G999'), ''), 'mant', 'mant');
+      r.proximo_cambio || coalesce(' · estimado $' || replace(to_char(r.proximo_cambio_costo, 'FM999,999,999,999'), ',', '.'), ''), 'mant', 'mant');
     n := n + 1;
   end loop;
   -- garantías y documentos del conjunto que vencen en 30 días
