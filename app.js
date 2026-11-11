@@ -68,7 +68,7 @@ const ROL = () => S.ctx && S.ctx.rol;
 const W = () => ROL() === 'admin' && S.ctx.vigente !== false;                 // puede escribir como administración
 const R = () => ROL() === 'residente';
 const gestiona = () => S.ctxs.some(c => c.rol === 'admin' || c.rol === 'consejo');
-const inicioDe = c => c.rol === 'residente' ? 'rinicio' : c.rol === 'porteria' ? 'porteria' : c.rol === 'proveedor' ? 'pagenda' : 'inicio';
+const inicioDe = c => c.rol === 'residente' ? 'rinicio' : c.rol === 'porteria' ? 'porteria' : c.rol === 'proveedor' ? 'pagenda' : c.rol === 'operario' ? 'rondas' : 'inicio';
 
 const TABS = {
   admin: [['inicio', 'Inicio'], ['cartera', 'Cartera'], ['mant', 'Mantenim.'], ['chat', 'Chat'], ['mas', 'Más']],
@@ -87,7 +87,7 @@ function header() {
   const enPortafolio = S.view === 'portafolio' || !S.ctx || ['sinacceso', 'nuevo', 'contextos'].includes(S.view);
   $('htitle').textContent = enPortafolio ? (S.view === 'contextos' ? 'Mis accesos' : 'Mis conjuntos') : S.ctx.nombre;
   $('hsub').textContent = enPortafolio ? (S.user ? S.user.email : '')
-    : R() ? `Apto ${S.ctx.unidad_codigo || ''} · Residente` : `${S.ctx.ciudad || ''}${S.ctx.ciudad ? ' · ' : ''}${ROL() === 'admin' ? 'Administración' : ROL() === 'porteria' ? 'Portería' : ROL() === 'proveedor' ? 'Proveedor de mantenimiento' : 'Consejo de administración'}`;
+    : R() ? `Apto ${S.ctx.unidad_codigo || ''} · Residente` : `${S.ctx.ciudad || ''}${S.ctx.ciudad ? ' · ' : ''}${ROL() === 'admin' ? 'Administración' : ROL() === 'porteria' ? 'Portería' : ROL() === 'proveedor' ? 'Proveedor de mantenimiento' : ROL() === 'operario' ? 'Operario' : 'Consejo de administración'}`;
   const cb = $('conjBtn');
   cb.hidden = !(gestiona() && S.ctx && !enPortafolio);
   cb.innerHTML = `▦ Todos mis conjuntos`;
@@ -100,9 +100,9 @@ function nav() {
   if (!show) return;
   const tabs = TABS[ROL()];
   const enMas = ['mas', 'rmas'];
-  const deMas = { admin: ['reservas', 'pqrs', 'asamblea', 'info', 'config', 'inventario', 'activo', 'qrs', 'documentos', 'reportes', 'reportar', 'bitacora', 'notificaciones'], consejo: ['pqrs', 'asamblea', 'info', 'inventario', 'activo', 'qrs', 'documentos', 'reportes', 'reportar', 'bitacora', 'notificaciones'], residente: ['rpqrs', 'rdano', 'asamblea', 'info', 'documentos', 'reportar', 'misreportes', 'misvisitas', 'mispaquetes', 'notificaciones'], porteria: ['reportar', 'notificaciones', 'ejec'], proveedor: ['ejec', 'proveedor'] }[ROL()] || [];
+  const deMas = { admin: ['reservas', 'pqrs', 'asamblea', 'info', 'config', 'inventario', 'activo', 'qrs', 'documentos', 'reportes', 'reportar', 'bitacora', 'notificaciones', 'llamados', 'llamado'], consejo: ['pqrs', 'asamblea', 'info', 'inventario', 'activo', 'qrs', 'documentos', 'reportes', 'reportar', 'bitacora', 'notificaciones', 'llamados', 'llamado'], residente: ['rpqrs', 'rdano', 'asamblea', 'info', 'documentos', 'reportar', 'misreportes', 'misvisitas', 'mispaquetes', 'notificaciones', 'mipiso', 'punto', 'misllamados', 'llamado'], porteria: ['reportar', 'notificaciones', 'ejec', 'punto'], proveedor: ['ejec', 'proveedor', 'punto'], operario: ['punto'] }[ROL()] || [];
   $('nav').innerHTML = tabs.map(([k, l]) => {
-    const cur = S.view === k || (enMas.includes(k) && deMas.includes(S.view)) || (k === 'mant' && ['ejec', 'proveedor'].includes(S.view));
+    const cur = S.view === k || (enMas.includes(k) && deMas.includes(S.view)) || (k === 'mant' && ['ejec', 'proveedor', 'punto'].includes(S.view));
     const ico = k === 'rinicio' ? 'inicio' : k === 'pagos' ? 'cartera' : k === 'rmas' ? 'mas' : k;
     return `<button data-act="tab" data-v="${k}" aria-current="${cur}">${k === 'chat' && S.unread ? `<span class="nbadge">${S.unread}</span>` : ''}${svg(ico)}${l}</button>`;
   }).join('');
@@ -250,7 +250,7 @@ V.nuevo = async () => `<div class="stack"><h2>Nuevo conjunto</h2>
 
 V.contextos = async () => {
   const g = S.ctxs.filter(c => c.rol !== 'residente'), r = S.ctxs.filter(c => c.rol === 'residente');
-  const fila = c => `<button class="card navcard" data-act="entrar" data-id="${c.conjunto_id}" data-rol="${c.rol}"><div class="ico">${iniciales(c.nombre)}</div><div class="grow"><h3>${esc(c.nombre)}</h3><div class="sub">${c.rol === 'admin' ? 'Administración' : c.rol === 'consejo' ? 'Consejo' : c.rol === 'porteria' ? 'Portería' : c.rol === 'proveedor' ? 'Proveedor de mantenimiento' : 'Residente · ' + esc(c.unidad_codigo)}</div></div><span class="sub">›</span></button>`;
+  const fila = c => `<button class="card navcard" data-act="entrar" data-id="${c.conjunto_id}" data-rol="${c.rol}"><div class="ico">${iniciales(c.nombre)}</div><div class="grow"><h3>${esc(c.nombre)}</h3><div class="sub">${c.rol === 'admin' ? 'Administración' : c.rol === 'consejo' ? 'Consejo' : c.rol === 'porteria' ? 'Portería' : c.rol === 'proveedor' ? 'Proveedor de mantenimiento' : c.rol === 'operario' ? 'Operario' : 'Residente · ' + esc(c.unidad_codigo)}</div></div><span class="sub">›</span></button>`;
   return `<div class="stack">
     ${g.length ? `<button class="btn" data-act="ir" data-v="portafolio">▦ Panel de todos mis conjuntos</button>` : ''}
     ${g.length ? `<h3>Conjuntos que gestiono</h3>${g.map(fila).join('')}` : ''}
@@ -720,9 +720,9 @@ V.config = async () => {
       <button class="btn" type="submit">Agregar zona</button></form></details>
 
   <details class="card"><summary><b>Equipo de gestión</b> <span class="sub">(administración y consejo)</span></summary>
-    ${equipo.map(i => `<div class="item"><div class="grow"><h3>${esc(i.email)}</h3><div class="sub">${i.rol === 'admin' ? 'Administración' : i.rol === 'porteria' ? 'Portería' : 'Consejo'}</div></div><span class="chip ${i.usada ? 'ok' : 'warn'}">${i.usada ? 'Activo' : 'Invitado'}</span></div>`).join('')}
+    ${equipo.map(i => `<div class="item"><div class="grow"><h3>${esc(i.email)}</h3><div class="sub">${i.rol === 'admin' ? 'Administración' : i.rol === 'porteria' ? 'Portería' : i.rol === 'operario' ? 'Operario' : 'Consejo'}</div></div><span class="chip ${i.usada ? 'ok' : 'warn'}">${i.usada ? 'Activo' : 'Invitado'}</span></div>`).join('')}
     <form class="form mt" data-form="invitar"><div class="two"><div><label for="iv-e">Correo</label><input id="iv-e" name="email" type="email" required></div>
-      <div><label for="iv-r">Rol</label><select id="iv-r" name="rol"><option value="consejo">Consejo (solo consulta)</option><option value="admin">Administración</option><option value="porteria">Portería (vigilancia)</option></select></div></div>
+      <div><label for="iv-r">Rol</label><select id="iv-r" name="rol"><option value="consejo">Consejo (solo consulta)</option><option value="admin">Administración</option><option value="porteria">Portería (vigilancia)</option><option value="operario">Operario (aseo, todero)</option></select></div></div>
       <p class="sub" style="margin:0">La persona entra creando su cuenta con ese correo.</p>
       <button class="btn" type="submit">Dar acceso</button></form></details></div>`;
 };
