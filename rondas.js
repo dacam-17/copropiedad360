@@ -16,6 +16,7 @@ SECC_MANT.splice(1, 0, ['rondas', 'Pisos y rondas']);
 
 const DIAS = [[1, 'L'], [2, 'M'], [3, 'X'], [4, 'J'], [5, 'V'], [6, 'S'], [7, 'D']];
 const hoyDow = () => { const d = new Date().getDay(); return d === 0 ? 7 : d; };
+const avisoChip = (g, r) => g.avisados == null ? '' : `<div style="margin-top:4px">${r.notificar === false ? '<span class="chip">Sin aviso a residentes</span>' : g.avisados ? `<span class="chip ok">Avisado a ${g.avisados} ${g.avisados === 1 ? 'apto' : 'aptos'}</span>` : '<span class="chip warn">Nadie avisado: piso sin apartamentos</span>'}</div>`;
 const COLS_PUNTO = 'id, conjunto_id, nombre, torre, piso, descripcion, orden';
 const esPersonal = () => ['admin', 'porteria', 'operario', 'proveedor'].includes(ROL());
 const horaCorta = t => t ? new Date('2000-01-01T' + t).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }) : '';
@@ -107,7 +108,8 @@ V.punto = async () => {
     <div id="pt-qr" class="qrbox" style="align-self:center"></div><div class="sub" style="text-align:center">También puedes imprimir este QR como respaldo de la etiqueta.</div></div>
   <details class="card"><summary><b>Apartamentos que reciben el aviso</b> <span class="sub">(${unis.length})</span></summary><form class="form mt" data-form="unidadesPunto" data-id="${p.id}"><input name="patron" value="${esc(unis.map(u => (u.unidades || {}).codigo).join(', '))}"><p class="sub" style="margin:0">Escribe un prefijo (T1-7) o la lista separada por comas. Reemplaza la lista actual.</p><button class="btn sm" type="submit" style="align-self:flex-start">Guardar</button></form></details>
   <button class="btn sm ghost danger-t" data-act="borrarPunto" data-id="${p.id}" data-confirm="¿Borrar piso y sus registros?" style="align-self:flex-start">Borrar este piso</button>` : ''}
-  <div class="card"><h2>Últimos registros</h2><div class="list" style="margin-top:6px">${historial.map(g => { const r = rutinas.find(x => x.id === g.rutina_id) || {}; return `<div class="item"><div class="grow"><div class="row"><h3>${esc(r.nombre || 'Rutina')}</h3><span class="sub">${fechaHora(g.hecho_at)}</span></div><div class="sub">${esc(g.quien || '')}${g.via === 'manual' ? ' · manual' : ''}${g.nota ? ' · ' + esc(g.nota) : ''}</div>${fotosHTML(g.foto ? [g.foto] : [])}</div></div>`; }).join('') || '<div class="sub" style="padding-top:6px">Sin registros en las últimas dos semanas.</div>'}</div></div>
+  ${!R() && W() && !unis.length && rutinas.some(r => r.notificar) ? '<div class="card" style="border-color:var(--warn);background:var(--warn-soft)"><b>Este piso no tiene apartamentos asignados</b><div class="sub" style="margin-top:4px">Cuando se marque una rutina no se le avisará a nadie. Agrégalos abajo en “Apartamentos que reciben el aviso” (las unidades deben estar cargadas en Ajustes).</div></div>' : ''}
+  <div class="card"><h2>Últimos registros</h2><div class="list" style="margin-top:6px">${historial.map(g => { const r = rutinas.find(x => x.id === g.rutina_id) || {}; return `<div class="item"><div class="grow"><div class="row"><h3>${esc(r.nombre || 'Rutina')}</h3><span class="sub">${fechaHora(g.hecho_at)}</span></div><div class="sub">${esc(g.quien || '')}${g.via === 'manual' ? ' · manual' : ''}${g.nota ? ' · ' + esc(g.nota) : ''}</div>${R() ? '' : avisoChip(g, r)}${fotosHTML(g.foto ? [g.foto] : [])}</div></div>`; }).join('') || '<div class="sub" style="padding-top:6px">Sin registros en las últimas dos semanas.</div>'}</div></div>
   </div>`;
 };
 AFTER.punto = async () => {
@@ -206,7 +208,8 @@ Object.assign(FORM, {
   },
   marcarRutina: async (f, form) => {
     const foto = await subir(form.foto.files[0], 'rondas');
-    await q(sb.rpc('marcar_rutina', { p_rutina: form.dataset.id, p_token: S.sub.token || null, p_foto: foto, p_nota: f.nota || null }));
-    toast('Registrado. Los residentes del piso ya recibieron el aviso.', 4000); render();
+    const res = await q(sb.rpc('marcar_rutina', { p_rutina: form.dataset.id, p_token: S.sub.token || null, p_foto: foto, p_nota: f.nota || null }));
+    const n = res && res.avisados;
+    toast(res && res.notificar === false ? 'Registrado. Esta rutina no envía aviso a los residentes.' : n ? `Registrado. Aviso enviado a ${n} ${n === 1 ? 'apartamento' : 'apartamentos'} del piso.` : 'Registrado, pero este piso no tiene apartamentos asignados: no se avisó a nadie.', 5000); render();
   }
 });
