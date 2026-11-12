@@ -239,3 +239,5 @@ details.card h3{margin:14px 0 2px;font-size:14px}
 @media print{.hoja{border:0;border-radius:0;padding:0;break-after:page;page-break-after:always}.hoja:last-of-type{break-after:auto}.hlogo{display:none}}
 .votobar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--line)}
 .votobar .si{background:var(--bad)}.votobar .no{background:var(--ok)}
+.normabox{margin-top:8px;border-left:3px solid var(--accent);background:var(--bg);border-radius:0 10px 10px 0;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.normabox p{margin:0;font-style:italic}

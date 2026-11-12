@@ -15,6 +15,19 @@ const chipLl = { 'Enviado': 'warn', 'Leído': 'info', 'Con descargos': 'warn', '
 const GRAVEDAD = ['Leve', 'Grave', 'Gravísima'];
 const chipGrav = { 'Leve': 'info', 'Grave': 'warn', 'Gravísima': 'bad' };
 const esConsejo = () => ROL() === 'consejo';
+let LL_FALTAS = [];
+function opcionesFalta(faltas, cat, sel) {
+  const fs = cat ? faltas.filter(x => x.categoria === cat) : faltas;
+  const otras = cat ? faltas.filter(x => x.categoria !== cat) : [];
+  const grupo = (lista, pref) => GRAVEDAD.map(g => { const gs = lista.filter(x => x.gravedad === g); return gs.length ? `<optgroup label="${pref}${g.toLowerCase()}s">${gs.map(x => `<option value="${x.id}" ${sel === x.id ? 'selected' : ''}>${esc(x.articulo)} · ${esc(x.titulo)}</option>`).join('')}</optgroup>` : ''; }).join('');
+  return `<option value="">${cat ? (fs.length ? `Escoge la norma de ${cat.toLowerCase()}…` : `El manual no tiene normas de ${cat.toLowerCase()}`) : 'Escoge primero el motivo, o busca aquí la norma…'}</option>`
+    + grupo(fs, cat ? cat + ' · faltas ' : 'Faltas ') + (otras.length ? `<optgroup label="── Otras normas del manual ──"></optgroup>` + grupo(otras, 'Otras · faltas ') : '');
+}
+function borradorHechos(x, f) {
+  const cuando = f.fecha_hechos.value ? 'El ' + pd(f.fecha_hechos.value).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }) : 'El día [fecha]';
+  const uni = f.unidad.selectedOptions[0] && f.unidad.value ? 'la unidad ' + f.unidad.selectedOptions[0].text.split(' · ')[0].replace(/ \(.*$/, '') : 'la unidad';
+  return `${cuando}, aproximadamente a las [hora], se evidenció que ${uni} incurrió en: ${x.titulo.toLowerCase().replace(/\.+$/, "")}. [Describe lo ocurrido: lugar, quién lo reportó y evidencias.] Esta conducta es contraria a lo establecido en el ${x.articulo} del manual de convivencia.`;
+}
 const venceDescargos = l => { const d = l.created_at ? new Date(l.created_at) : new Date(); d.setDate(d.getDate() + (Number(l.plazo_dias) || 5)); return d; };
 const enPlazo = l => new Date() <= venceDescargos(l);
 
@@ -48,6 +61,7 @@ V.llamados = async () => {
     W() ? q(sb.from('reportes').select('id, numero, titulo, categoria, descripcion, fotos, created_at').eq('conjunto_id', C()).in('categoria', ['Convivencia', 'Mascotas', 'Parqueadero', 'Aseo', 'Seguridad', 'Daño', 'Otro']).order('created_at', { ascending: false }).limit(20)) : Promise.resolve([]),
     W() ? q(sb.from('manual_faltas').select('*').eq('conjunto_id', C()).eq('activo', true).order('articulo')) : Promise.resolve([])
   ]);
+  LL_FALTAS = faltas;
   const enConsejo = lista.filter(l => l.estado === 'En consejo');
   const abiertos = lista.filter(l => !['Decidido', 'Cerrado'].includes(l.estado) || l.estado === 'Impugnado');
   const porDecidir = lista.filter(l => !l.decision && (l.descargos_at || !enPlazo(l)));
@@ -67,13 +81,14 @@ V.llamados = async () => {
   </div>
   ${reinc.length ? `<div class="card"><h3>Reincidencia (últimos 12 meses)</h3><div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:wrap;margin-top:6px">${reinc.map(([u, n]) => `<span class="chip bad">${esc(u)} · ${n}</span>`).join('')}</div></div>` : ''}
   ${W() ? `<details class="card" ${S.sub.nuevo ? 'open' : ''}><summary><b>+ Nuevo llamado de atención</b></summary><form class="form mt" data-form="llamado">
-    <div class="two"><div><label>Unidad</label><select name="unidad" required><option value="">Escoge…</option>${unis.map(u => `<option value="${u.id}" ${S.sub.unidad === u.id ? 'selected' : ''}>${esc(u.codigo)}${u.propietario ? ' · ' + esc(u.propietario) : ''}${prevDe(u.id) ? ` (${prevDe(u.id)} previo${prevDe(u.id) > 1 ? 's' : ''})` : ''}</option>`).join('')}</select></div>
+    <div class="two"><div><label>Unidad</label><select name="unidad" required data-chg="fechaLl"><option value="">Escoge…</option>${unis.map(u => `<option value="${u.id}" ${S.sub.unidad === u.id ? 'selected' : ''}>${esc(u.codigo)}${u.propietario ? ' · ' + esc(u.propietario) : ''}${prevDe(u.id) ? ` (${prevDe(u.id)} previo${prevDe(u.id) > 1 ? 's' : ''})` : ''}</option>`).join('')}</select></div>
     <div><label>Tipo</label><select name="tipo" data-chg="tipoLlamado"><option ${S.sub.tipo === 'Llamado de atención' ? 'selected' : ''}>Llamado de atención</option><option ${S.sub.tipo === 'Requerimiento' ? 'selected' : ''}>Requerimiento</option><option ${S.sub.tipo === 'Proceso sancionatorio' ? 'selected' : ''}>Proceso sancionatorio</option></select></div></div>
-    ${faltas.length ? `<div><label>Falta del manual de convivencia</label><select name="falta" data-chg="faltaLl"><option value="">Escoge la falta cometida…</option>${GRAVEDAD.map(g => { const fs = faltas.filter(x => x.gravedad === g); return fs.length ? `<optgroup label="Faltas ${g.toLowerCase()}s">${fs.map(x => `<option value="${x.id}" ${S.sub.falta === x.id ? 'selected' : ''}>${esc(x.articulo)} · ${esc(x.titulo)}</option>`).join('')}</optgroup>` : ''; }).join('')}</select><div class="sub" id="faltaInfo" style="margin-top:4px"></div></div>`
-      : `<div class="card sub" style="margin:0">Aún no has cargado el manual de convivencia. <button type="button" class="btn sm ghost" data-act="tab" data-v="manual">Cargarlo</button> Así cada llamado cita el artículo exacto y la sanción prevista.</div>`}
-    <div class="two"><div><label>Motivo</label><select name="categoria">${CAT_LL.map(c => `<option ${S.sub.categoria === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div><div><label>Fecha de los hechos</label><input name="fecha_hechos" type="date" max="${HOY()}" value="${S.sub.fecha || ''}"></div></div>
+    <div class="two"><div><label>Motivo</label><select name="categoria" required data-chg="motivoLl"><option value="">Escoge…</option>${CAT_LL.map(c => `<option ${S.sub.categoria === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div><div><label>Fecha de los hechos</label><input name="fecha_hechos" type="date" max="${HOY()}" value="${S.sub.fecha || ''}" data-chg="fechaLl"></div></div>
+    ${faltas.length ? `<div><label>Norma del manual que se incumple</label><select name="falta" data-chg="faltaLl">${opcionesFalta(faltas, S.sub.categoria, S.sub.falta)}</select>
+      <div id="faltaInfo"></div></div>`
+      : `<div class="card sub" style="margin:0">Aún no has cargado el manual de convivencia. <button type="button" class="btn sm ghost" data-act="tab" data-v="manual">Cargarlo</button> Así, al escoger el motivo, la app trae sola el artículo que se incumple, su texto y la sanción prevista.</div>`}
     ${reps.length ? `<div><label>Tomar los hechos de un reporte (opcional)</label><select name="reporte"><option value="">Ninguno</option>${reps.map(r => `<option value="${r.id}">#${r.numero} · ${esc(r.titulo)} · ${fecha(r.created_at)}</option>`).join('')}</select></div>` : ''}
-    <div><label>Hechos</label><textarea name="hechos" rows="4" placeholder="Qué pasó, cuándo y dónde, de forma objetiva" >${esc(S.sub.hechos || '')}</textarea></div>
+    <div><label>Hechos</label><textarea name="hechos" rows="5" placeholder="Qué pasó, cuándo y dónde, de forma objetiva" oninput="this.dataset.auto=''">${esc(S.sub.hechos || '')}</textarea></div>
     <div><label>Norma que se incumple</label><input name="norma" placeholder="Ej. Art. 25 del manual de convivencia: horario de ruido" value="${esc(S.sub.norma || '')}"></div>
     <input type="hidden" name="gravedad" value="">
     <div class="two"><div><label>Plazo para corregir o descargos (días)</label><input name="plazo" type="number" min="1" max="60" value="5" required></div><div><label>Evidencias (fotos)</label><input name="fotos" type="file" accept="image/*" multiple></div></div>
@@ -176,13 +191,24 @@ Object.assign(ACT, {
 });
 Object.assign(CHG, {
   tipoLlamado: () => { }, decisionLl: () => { },
-  faltaLl: async el => {
+  motivoLl: el => {
+    const sel = el.form.falta; if (!sel) return;
+    sel.innerHTML = opcionesFalta(LL_FALTAS, el.value, null);
+    const fs = LL_FALTAS.filter(x => x.categoria === el.value);
+    if (fs.length === 1) sel.value = fs[0].id;
+    CHG.faltaLl(sel);
+  },
+  fechaLl: el => { const f = el.form, x = LL_FALTAS.find(z => z.id === (f.falta && f.falta.value)); if (x && f.hechos.dataset.auto === '1') f.hechos.value = borradorHechos(x, f); },
+  faltaLl: el => {
     const form = el.form, info = $('faltaInfo');
-    if (!el.value) { form.gravedad.value = ''; if (info) info.textContent = ''; return; }
-    const x = await q(sb.from('manual_faltas').select('*').eq('id', el.value).single());
+    const x = LL_FALTAS.find(z => z.id === el.value);
+    if (!x) { form.gravedad.value = ''; if (info) info.innerHTML = ''; return; }
     form.norma.value = `${x.articulo} del manual de convivencia: ${x.titulo}`;
     form.categoria.value = x.categoria; form.plazo.value = x.plazo_dias; form.gravedad.value = x.gravedad;
-    if (info) info.innerHTML = `<span class="chip ${chipGrav[x.gravedad]}">Falta ${x.gravedad.toLowerCase()}</span>${x.sancion ? ' Sanción prevista: ' + esc(x.sancion) : ''}`;
+    if (!form.hechos.value.trim() || form.hechos.dataset.auto === '1') { form.hechos.value = borradorHechos(x, form); form.hechos.dataset.auto = '1'; }
+    if (info) info.innerHTML = `<div class="normabox"><div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:wrap"><b>${esc(x.articulo)} · ${esc(x.titulo)}</b><span class="chip ${chipGrav[x.gravedad]}">Falta ${x.gravedad.toLowerCase()}</span></div>
+      ${x.descripcion ? `<p>“${nl(x.descripcion)}”</p>` : '<p class="sub">Este artículo no tiene el texto de la norma cargado. Agrégalo en el manual para que salga citado en la carta.</p>'}
+      <div class="sub">${x.sancion ? 'Sanción prevista: <b>' + esc(x.sancion) + '</b> · ' : ''}${x.plazo_dias} días para responder</div></div>`;
   }
 });
 Object.assign(FORM, {
@@ -190,6 +216,7 @@ Object.assign(FORM, {
     let hechos = (f.hechos || '').trim(), evid = [];
     if (f.reporte) { const r = await q(sb.from('reportes').select('titulo, descripcion, fotos').eq('id', f.reporte).single()); if (!hechos) hechos = r.titulo + (r.descripcion ? '. ' + r.descripcion : ''); evid = r.fotos || []; }
     if (!hechos) throw new Error('Describe los hechos.');
+    if (/\[(fecha|hora|Describe)[^\]]*\]/.test(hechos)) throw new Error('Completa en los hechos lo que está entre corchetes [ ] antes de enviar.');
     evid = evid.concat(await subirVarias(form.fotos.files, 'llamados', 6));
     const l = await q(sb.from('llamados').insert({ conjunto_id: C(), unidad_id: f.unidad, tipo: f.tipo, categoria: f.categoria, fecha_hechos: f.fecha_hechos || null, hechos, norma: f.norma || null, falta_id: f.falta || null, gravedad: f.gravedad || null, plazo_dias: Number(f.plazo) || 5, evidencias: evid, reporte_id: f.reporte || null }).select('id, numero').single());
     toast(`${f.tipo} #${l.numero} enviado. La unidad ya recibió el aviso.`, 4000); go('llamado', { id: l.id });
@@ -275,11 +302,34 @@ V.manual = async () => {
       ${x.descripcion ? `<div class="sub" style="margin-top:2px">${nl(x.descripcion)}</div>` : ''}
       <div class="sub" style="margin-top:2px">${x.sancion ? 'Sanción prevista: <b>' + esc(x.sancion) + '</b> · ' : ''}${x.plazo_dias} días para responder</div>
       ${W() ? `<div class="row" style="justify-content:flex-start;gap:6px;margin-top:6px"><button class="btn sm ghost" data-act="llamadoDeFalta" data-id="${x.id}">Hacer llamado</button><button class="btn sm ghost" data-act="faltaActiva" data-id="${x.id}" data-v="${x.activo ? '' : '1'}">${x.activo ? 'Desactivar' : 'Activar'}</button><button class="btn sm ghost danger-t" data-act="borrarFalta" data-id="${x.id}" data-confirm="¿Borrar?">Borrar</button></div>` : ''}</div></div>`).join('')}</div></div>` : ''; }).join('')}
+  ${W() && !faltas.length ? `<div class="card stack" style="gap:8px"><h3>¿Empezar con un modelo?</h3><p class="sub" style="margin:0">Cargo ${MANUAL_BASE.length} faltas típicas de los manuales de convivencia en Colombia (ruido, mascotas, parqueaderos, basuras, obras, zonas comunes, convivencia y seguridad) con su texto. Después las ajustas al manual real de tu conjunto: artículos, horarios y sanciones.</p><button class="btn sm" data-act="manualBase" style="align-self:flex-start">Cargar modelo de manual</button></div>` : ''}
   ${!vis.length ? `<div class="card sub">${faltas.length ? 'No hay faltas con esa búsqueda.' : W() ? 'Carga las faltas de tu manual de convivencia. Cada llamado de atención citará el artículo exacto, su gravedad y la sanción prevista.' : 'La administración aún no ha publicado el manual de convivencia en la app. Puedes consultarlo en Documentos.'}</div>` : ''}
   </div>`;
 };
 
+const MANUAL_BASE = [
+  ['Art. 1', 'Ruido en horario nocturno', 'Ruido', 'Grave', 'Entre las 10:00 p.m. y las 7:00 a.m. de domingo a jueves, y entre las 11:00 p.m. y las 7:00 a.m. los viernes, sábados y vísperas de festivo, está prohibido el uso de equipos de sonido, instrumentos, televisores o cualquier fuente de ruido a un volumen que se perciba fuera de la unidad o perturbe la tranquilidad de los vecinos.', 'Requerimiento escrito; si reincide, multa de hasta 1 cuota ordinaria'],
+  ['Art. 2', 'Ruido excesivo en cualquier horario', 'Ruido', 'Leve', 'Los residentes deben mantener en todo momento un volumen moderado en música, televisión, reuniones y actividades dentro de la unidad, de modo que no perturbe la tranquilidad de los demás.', 'Llamado de atención'],
+  ['Art. 3', 'Obras y trabajos ruidosos fuera del horario', 'Obras', 'Leve', 'Las obras, reparaciones y trabajos que generen ruido solo pueden realizarse de lunes a viernes de 8:00 a.m. a 5:00 p.m. y los sábados de 8:00 a.m. a 1:00 p.m., previa autorización de la administración. No se permiten domingos ni festivos.', 'Suspensión de la obra y llamado de atención'],
+  ['Art. 4', 'Mascota sin traílla o bozal en zonas comunes', 'Mascotas', 'Leve', 'Las mascotas deben transitar por las zonas comunes con traílla y, si se trata de razas potencialmente peligrosas, con bozal, conforme a la Ley 1801 de 2016.', 'Llamado de atención; si reincide, multa'],
+  ['Art. 5', 'No recoger los excrementos de la mascota', 'Mascotas', 'Leve', 'El tenedor de la mascota debe recoger de inmediato sus excrementos en las zonas comunes y disponerlos adecuadamente.', 'Llamado de atención; si reincide, multa'],
+  ['Art. 6', 'Ruido o molestias causadas por mascotas', 'Mascotas', 'Leve', 'Los tenedores de mascotas deben evitar que los ladridos, olores o comportamiento de los animales perturben la tranquilidad y salubridad de los vecinos.', 'Llamado de atención'],
+  ['Art. 7', 'Parqueo en lugar no asignado', 'Parqueadero', 'Leve', 'Cada vehículo debe estacionarse únicamente en el parqueadero asignado a la unidad. Está prohibido ocupar parqueaderos de visitantes, de otras unidades o zonas de circulación.', 'Llamado de atención; si reincide, restricción del parqueadero de visitantes'],
+  ['Art. 8', 'Exceso de velocidad o mal uso de vías internas', 'Parqueadero', 'Grave', 'Dentro del conjunto la velocidad máxima es de 10 km/h. Se deben respetar las señales, el sentido de circulación y la prelación del peatón.', 'Requerimiento; si reincide, multa'],
+  ['Art. 9', 'Disposición inadecuada de basuras', 'Basuras', 'Leve', 'Las basuras deben depositarse en bolsas cerradas, separadas según el código de colores, en el shut o cuarto de basuras y en los horarios establecidos. No se pueden dejar en pasillos, escaleras ni zonas comunes.', 'Llamado de atención'],
+  ['Art. 10', 'Obra sin autorización', 'Obras', 'Grave', 'Toda reforma o modificación en la unidad debe contar con autorización previa de la administración y no puede afectar la estructura, la fachada ni los bienes comunes (art. 5 y 18 de la Ley 675 de 2001).', 'Suspensión de la obra, requerimiento y multa'],
+  ['Art. 11', 'Mal uso o daño de zonas comunes', 'Zonas comunes', 'Grave', 'Las zonas comunes deben usarse conforme a su destinación y reglamento. Quien cause daños responde por su reparación, sin perjuicio de la sanción.', 'Pago del daño y multa; restricción de uso de zonas no esenciales'],
+  ['Art. 12', 'Incumplimiento del reglamento de piscina, gimnasio o salón social', 'Zonas comunes', 'Leve', 'El uso de piscina, gimnasio, salón social y BBQ debe respetar los horarios, aforos y normas de cada zona publicados por la administración.', 'Llamado de atención; si reincide, restricción de uso'],
+  ['Art. 13', 'Irrespeto o agresión a empleados o residentes', 'Convivencia', 'Gravísima', 'Todos los residentes y visitantes deben tratar con respeto al personal de vigilancia, aseo y administración, y a los demás copropietarios. Se prohíben las agresiones verbales o físicas.', 'Multa de hasta 2 cuotas y restricción de zonas sociales'],
+  ['Art. 14', 'Ingreso de visitantes sin anuncio o autorización', 'Seguridad', 'Leve', 'Todo visitante debe ser anunciado en portería y autorizado por la unidad que visita. Los residentes son responsables del comportamiento de sus visitantes.', 'Llamado de atención'],
+  ['Art. 15', 'Consumo de sustancias o licor en zonas comunes', 'Convivencia', 'Grave', 'Está prohibido el consumo de sustancias psicoactivas en las zonas comunes, y el de bebidas alcohólicas fuera de los espacios y horarios autorizados por la administración.', 'Requerimiento; si reincide, multa'],
+  ['Art. 16', 'Objetos en fachadas, ventanas o balcones', 'Convivencia', 'Leve', 'No se permite colgar ropa, avisos, tapetes u objetos en ventanas, balcones o fachadas, ni modificar su color o diseño (art. 18, Ley 675 de 2001).', 'Llamado de atención']
+];
 Object.assign(ACT, {
+  manualBase: async () => {
+    await q(sb.from('manual_faltas').upsert(MANUAL_BASE.map(([articulo, titulo, categoria, gravedad, descripcion, sancion]) => ({ conjunto_id: C(), articulo, titulo, categoria, gravedad, descripcion, sancion, plazo_dias: gravedad === 'Gravísima' ? 3 : 5 })), { onConflict: 'conjunto_id,articulo,titulo' }));
+    toast('Modelo cargado. Ajusta artículos, horarios y sanciones a tu manual real.', 5000); render();
+  },
   enviarConsejo: async d => {
     const n = await q(sb.rpc('enviar_consejo', { p_id: d.id }));
     toast(`Caso enviado a ${n} ${n === 1 ? 'miembro' : 'miembros'} del consejo. Les llegó el aviso para votar.`, 5000); render();
@@ -315,4 +365,4 @@ Object.assign(FORM, {
 
 /* Al abrir el formulario desde una falta del manual, se precargan sus datos */
 const _afterLl = AFTER.llamados;
-AFTER.llamados = async () => { if (_afterLl) await _afterLl(); const el = document.querySelector('select[name="falta"]'); if (el && el.value) CHG.faltaLl(el); };
+AFTER.llamados = async () => { if (_afterLl) await _afterLl(); const el = document.querySelector('select[name="falta"]'); if (el && el.value) CHG.faltaLl(el); else { const m = document.querySelector('form[data-form="llamado"] select[name="categoria"]'); if (m && m.value) CHG.motivoLl(m); } };
