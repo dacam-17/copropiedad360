@@ -237,3 +237,5 @@ details.card h3{margin:14px 0 2px;font-size:14px}
 .hoja-pie{font-size:10.5px;color:#777;text-align:center}
 @media (max-width:520px){.hoja{padding:14px}.hoja-top{flex-wrap:wrap}.hoja-num{align-items:flex-start;text-align:left;width:100%}}
 @media print{.hoja{border:0;border-radius:0;padding:0;break-after:page;page-break-after:always}.hoja:last-of-type{break-after:auto}.hlogo{display:none}}
+.votobar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--line)}
+.votobar .si{background:var(--bad)}.votobar .no{background:var(--ok)}
